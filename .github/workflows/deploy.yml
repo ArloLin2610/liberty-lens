@@ -7,32 +7,26 @@ on:
     # 22:30 UTC on weekdays = after the US close in both winter (17:30 ET) and summer (18:30 ET).
     - cron: '30 22 * * 1-5'
   workflow_dispatch:
-    inputs:
-      force_deploy:
-        description: 'Publish to Netlify now even if no new week or month has completed (costs 15 Netlify credits)'
-        type: boolean
-        default: false
 
 concurrency:
   group: deploy
   cancel-in-progress: false
 
-# The job commits the weekly forward-test snapshot (track/<ISO week>.json), the last good
-# constituent list and the last-published marker back to the repository.
-permissions:
-  contents: write
-
-env:
-  NETLIFY_SITE_ID: 10c4c5e6-6d95-4c2c-bbf0-65337debf3f3 # liberty-lens-us (an identifier, not a secret)
-
 jobs:
-  deploy:
+  build:
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    # Commits the weekly forward-test snapshot (track/<ISO week>.json) and the last good
+    # constituent list back to the repository.
+    permissions:
+      contents: write
+      pages: read
+    outputs:
+      pages: ${{ steps.pages.outputs.enabled }}
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: main # always the newest main, so files committed by the previous run are present
+          ref: main # always the newest main, so snapshots committed by the previous run are present
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -42,32 +36,45 @@ jobs:
       - name: Build daily data (prices, signals, backtest, forward test)
         run: npm run data:build
       - name: Record the forward-test snapshot and constituent list
-        # Runs every day and is committed before any deploy, so the weekly record never depends on publishing.
+        # Committed before publishing, so the weekly record never depends on the deploy.
         # Pushes made with GITHUB_TOKEN do not start another workflow run.
         run: |
           git add track data/universe-fallback.json
           if git diff --cached --quiet; then echo "Nothing new to record."; exit 0; fi
           git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" commit -m "data: record $(date -u +%F)"
           git push origin HEAD:main || (git pull --rebase origin main && git push origin HEAD:main)
-      - name: Decide whether to publish
-        # A Netlify production deploy costs credits. Signals only change when a week or month
-        # completes, so publish only then; every other run stops here.
-        id: gate
-        env:
-          FORCE_DEPLOY: ${{ inputs.force_deploy }}
-        run: node scripts/should-deploy.mjs
       - name: Build site
-        if: steps.gate.outputs.deploy == 'true'
         run: npm run build
-      - name: Deploy to Netlify (prebuilt, no Netlify build minutes)
-        if: steps.gate.outputs.deploy == 'true'
+      - name: Check that GitHub Pages is turned on
+        # Pages has to be enabled once in the repository settings (Settings > Pages > Source: GitHub Actions).
+        # Until then the run still succeeds; it just does not publish.
+        id: pages
         env:
-          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
-        run: npx --yes netlify-cli@latest deploy --prod --no-build --dir=dist --message "data ${{ github.event_name }} $(date -u +'%Y-%m-%dT%H:%MZ')"
-      - name: Remember what was published
-        if: steps.gate.outputs.deploy == 'true'
+          GH_TOKEN: ${{ github.token }}
         run: |
-          node scripts/should-deploy.mjs --mark
-          git add data/last-deploy.json
-          git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" commit -m "deploy: published $(date -u +%F)"
-          git push origin HEAD:main || (git pull --rebase origin main && git push origin HEAD:main)
+          if [ "$(gh api "repos/${{ github.repository }}/pages" --jq .build_type 2>/dev/null)" = "workflow" ]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::GitHub Pages is not set to 'GitHub Actions' yet (Settings > Pages > Source). The site was built but not published."
+          fi
+      - name: Upload the site
+        if: steps.pages.outputs.enabled == 'true'
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  publish:
+    needs: build
+    if: needs.build.outputs.pages == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Publish to GitHub Pages (free, no Netlify credits)
+        id: deployment
+        uses: actions/deploy-pages@v4

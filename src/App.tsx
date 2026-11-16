@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useJson } from './lib/data';
+import { dataUrl, useJson } from './lib/data';
 import { fmtDate } from './lib/format';
 import { loadTheme, loadWatchlist, saveTheme, saveWatchlist, type Theme } from './lib/storage';
 import type { BacktestPayload, MarketPayload, TrackPayload, UniversePayload } from './lib/types';
@@ -28,10 +28,10 @@ const useHash = (): string => {
 
 export function App() {
   const hash = useHash();
-  const universe = useJson<UniversePayload>('/data/universe.json');
-  const market = useJson<MarketPayload>('/data/market.json');
-  const backtest = useJson<BacktestPayload>('/data/backtest.json');
-  const track = useJson<TrackPayload>('/data/track.json');
+  const universe = useJson<UniversePayload>(dataUrl('universe.json'));
+  const market = useJson<MarketPayload>(dataUrl('market.json'));
+  const backtest = useJson<BacktestPayload>(dataUrl('backtest.json'));
+  const track = useJson<TrackPayload>(dataUrl('track.json'));
   const [theme, setTheme] = useState<Theme>(loadTheme);
   const [watchlist, setWatchlist] = useState<string[]>(loadWatchlist);
   const [query, setQuery] = useState('');

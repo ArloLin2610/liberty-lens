@@ -3,7 +3,7 @@ import { Pct, Segmented } from '@/components/Bits';
 import { LineChart } from '@/components/LineChart';
 import { ViewPlaque } from '@/components/Plaque';
 import { buildChartModel } from '@/lib/chartModel';
-import { useJson } from '@/lib/data';
+import { dataUrl, useJson } from '@/lib/data';
 import { fmtDay, fmtPrice, HORIZON_HINT, HORIZON_LABEL, LINE_NAME, PERIOD_NAME, zoneSentence } from '@/lib/format';
 import type { Horizon } from '@/lib/signals';
 import type { HistoryPayload, HorizonView, UniversePayload } from '@/lib/types';
@@ -33,7 +33,7 @@ function ReadingCard({ horizon, view }: { horizon: Horizon; view: HorizonView | 
 
 export function Stock({ ticker, universe, watchlist, onToggleWatch }: { ticker: string; universe: UniversePayload; watchlist: string[]; onToggleWatch: (ticker: string) => void }) {
   const row = universe.rows.find((item) => item.ticker === ticker.toUpperCase());
-  const history = useJson<HistoryPayload>(row ? `/data/h/${row.ticker}.json` : null);
+  const history = useJson<HistoryPayload>(row ? dataUrl(`h/${row.ticker}.json`) : null);
   const [horizon, setHorizon] = useState<Horizon>('mid');
   const [years, setYears] = useState<number | null>(5);
   const model = useMemo(() => (history.data ? buildChartModel(history.data, horizon, years) : null), [history.data, horizon, years]);

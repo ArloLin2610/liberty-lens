@@ -3,7 +3,7 @@ import { Pct, ShareBar, TickerCell } from '@/components/Bits';
 import { LineChart } from '@/components/LineChart';
 import { ViewPlaque } from '@/components/Plaque';
 import { buildChartModel } from '@/lib/chartModel';
-import { useJson } from '@/lib/data';
+import { dataUrl, useJson } from '@/lib/data';
 import { fmtDay, fmtPct, fmtPrice } from '@/lib/format';
 import type { BacktestPayload, HistoryPayload, MarketPayload, UniversePayload } from '@/lib/types';
 
@@ -15,7 +15,7 @@ const STANCE = [
 ];
 
 export function Overview({ universe, market, backtest }: { universe: UniversePayload; market: MarketPayload; backtest: BacktestPayload | null }) {
-  const spyHistory = useJson<HistoryPayload>('/data/h/SPY.json');
+  const spyHistory = useJson<HistoryPayload>(dataUrl('h/SPY.json'));
   const spy = universe.rows.find((row) => row.ticker === 'SPY');
   const model = useMemo(() => (spyHistory.data ? buildChartModel(spyHistory.data, 'mid', 5) : null), [spyHistory.data]);
   const stance = STANCE[market.stance.score];

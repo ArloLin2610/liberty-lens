@@ -1,5 +1,8 @@
 import { useEffect, useState } from 'react';
 
+/** URL of a file under the site's data folder; relative, so the site works from any path (GitHub Pages serves it under /liberty-lens/). */
+export const dataUrl = (name: string): string => `${import.meta.env.BASE_URL}data/${name}`;
+
 export interface Loaded<T> { data: T | null; error: string | null }
 
 /** Fetch a static JSON file once per URL. */

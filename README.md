@@ -1,6 +1,6 @@
 # Liberty Lens｜美股中長期透鏡
 
-網址：https://liberty-lens-us.netlify.app
+網址：https://arlolin2610.github.io/liberty-lens/
 
 S&P 500、Nasdaq-100 成分股與 30 檔主要 ETF 的中長期趨勢訊號：什麼時候規則上可以進場、什麼時候該出場，以及這套規則過去 24 年的實際結果。純靜態網站，不需登入；觀察清單與主題存在瀏覽器。
 
@@ -27,15 +27,15 @@ S&P 500、Nasdaq-100 成分股與 30 檔主要 ETF 的中長期趨勢訊號：�
 
 GitHub Actions（`.github/workflows/deploy.yml`）每個平日 22:30 UTC（美股收盤後）與每次推上 `main`：
 
-`npm test` → `npm run data:build` → 提交 `track/` 與 `data/universe-fallback.json` → 判斷是否發布 → `npm run build` → `netlify deploy --prod --no-build`
+`npm test` → `npm run data:build` → 提交 `track/` 與 `data/universe-fallback.json` → `npm run build` → 發布到 GitHub Pages
 
-**只有在新的一週或新的一個月走完時才發布到 Netlify**（`scripts/should-deploy.mjs`，比對 `data/last-deploy.json`），大約每月 5 次。原因：Netlify 免費方案每月 300 點，每次正式部署扣 15 點，而訊號只在週收盤與月底才會變。其餘日子照常跑測試、資料與實測紀錄，但不發布，所以網站上的價格是上一次發布時的收盤價。要立刻發布：在 Actions 頁手動執行並勾選 `force_deploy`。推程式上 `main` 不會自動發布。
+網站放在 GitHub Pages（免費，沒有部署次數的限制），不使用 Netlify。Pages 需要在 repo 的 Settings > Pages 把 Source 設成「GitHub Actions」一次；還沒設定時，執行仍會成功，只是不發布。
 
 - 成分股：S&P 500 來自 Wikipedia，Nasdaq-100 來自 Nasdaq 官方清單；抓不到時用上一次成功的名單（`data/universe-fallback.json`）。
 - 價格：Yahoo Finance 公開的日線（25 年，含還原收盤）；VIX、10 年期與 3 個月殖利率也來自同一來源。
 - 產出：`public/data/universe.json`、`market.json`、`backtest.json`、`track.json`、`h/<代號>.json`（不進版控）。
 - 防呆：少於 95% 的標的有價格、或最新價格超過 6 天，就拒絕發布；盤中執行時不採用未收盤的當日 K 棒。
-- 需要的 repo secret：`NETLIFY_AUTH_TOKEN`。站台 ID 寫在 workflow 裡。Netlify 上不跑任何建置或函式。
+- 不需要任何 secret。
 
 ## 實測追蹤
 
