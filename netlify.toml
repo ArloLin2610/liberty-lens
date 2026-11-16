@@ -1,0 +1,14 @@
+# The site is prebuilt by GitHub Actions and uploaded with `netlify deploy --no-build`;
+# nothing is built on Netlify, so no build minutes are used.
+[build]
+  publish = "dist"
+
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+[[headers]]
+  for = "/data/*"
+  [headers.values]
+    Cache-Control = "public, max-age=300"

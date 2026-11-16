@@ -1,0 +1,52 @@
+name: Build data and deploy
+
+on:
+  push:
+    branches: [main]
+  schedule:
+    # 22:30 UTC on weekdays = after the US close in both winter (17:30 ET) and summer (18:30 ET).
+    - cron: '30 22 * * 1-5'
+  workflow_dispatch:
+
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+# The job commits the weekly forward-test snapshot (track/<ISO week>.json) and the
+# last good constituent list (data/universe-fallback.json) back to the repository.
+permissions:
+  contents: write
+
+env:
+  NETLIFY_SITE_ID: 10c4c5e6-6d95-4c2c-bbf0-65337debf3f3 # liberty-lens-us (an identifier, not a secret)
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main # always the newest main, so snapshots committed by the previous run are present
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - name: Build daily data (prices, signals, backtest, forward test)
+        run: npm run data:build
+      - name: Record the forward-test snapshot and constituent list
+        # Committed before the deploy so a failed deploy never loses a week of the record.
+        # Pushes made with GITHUB_TOKEN do not start another workflow run.
+        run: |
+          git add track data/universe-fallback.json
+          if git diff --cached --quiet; then echo "Nothing new to record."; exit 0; fi
+          git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" commit -m "data: record $(date -u +%F)"
+          git push origin HEAD:main || (git pull --rebase origin main && git push origin HEAD:main)
+      - name: Build site
+        run: npm run build
+      - name: Deploy to Netlify (prebuilt, no Netlify build minutes)
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+        run: npx --yes netlify-cli@latest deploy --prod --no-build --dir=dist --message "data ${{ github.event_name }} $(date -u +'%Y-%m-%dT%H:%MZ')"
