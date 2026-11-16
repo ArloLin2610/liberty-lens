@@ -301,5 +301,5 @@ const trackPayload: TrackPayload = {
 await writeFile(resolve(outDir, 'track.json'), JSON.stringify(trackPayload));
 log(`track.json: ${trackPayload.weeks} weekly snapshots since ${trackPayload.startedOn ?? 'n/a'}`);
 
-await writeFile(resolve(outDir, 'manifest.json'), JSON.stringify({ generatedAt: new Date().toISOString(), asOf: dayToIso(asOfT), symbols: rows.length, failed: failed.map((item) => item.ticker), trackedWeeks: trackPayload.weeks }, null, 2));
+await writeFile(resolve(outDir, 'manifest.json'), JSON.stringify({ generatedAt: new Date().toISOString(), asOf: dayToIso(asOfT), midBar: dayToIso(midBarT), longBar: dayToIso(longBarT), symbols: rows.length, failed: failed.map((item) => item.ticker), trackedWeeks: trackPayload.weeks }, null, 2));
 log('done');

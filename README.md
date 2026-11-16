@@ -27,7 +27,9 @@ S&P 500、Nasdaq-100 成分股與 30 檔主要 ETF 的中長期趨勢訊號：�
 
 GitHub Actions（`.github/workflows/deploy.yml`）每個平日 22:30 UTC（美股收盤後）與每次推上 `main`：
 
-`npm test` → `npm run data:build` → 提交 `track/` 與 `data/universe-fallback.json` → `npm run build` → `netlify deploy --prod --no-build`
+`npm test` → `npm run data:build` → 提交 `track/` 與 `data/universe-fallback.json` → 判斷是否發布 → `npm run build` → `netlify deploy --prod --no-build`
+
+**只有在新的一週或新的一個月走完時才發布到 Netlify**（`scripts/should-deploy.mjs`，比對 `data/last-deploy.json`），大約每月 5 次。原因：Netlify 免費方案每月 300 點，每次正式部署扣 15 點，而訊號只在週收盤與月底才會變。其餘日子照常跑測試、資料與實測紀錄，但不發布，所以網站上的價格是上一次發布時的收盤價。要立刻發布：在 Actions 頁手動執行並勾選 `force_deploy`。推程式上 `main` 不會自動發布。
 
 - 成分股：S&P 500 來自 Wikipedia，Nasdaq-100 來自 Nasdaq 官方清單；抓不到時用上一次成功的名單（`data/universe-fallback.json`）。
 - 價格：Yahoo Finance 公開的日線（25 年，含還原收盤）；VIX、10 年期與 3 個月殖利率也來自同一來源。

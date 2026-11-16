@@ -7,13 +7,18 @@ on:
     # 22:30 UTC on weekdays = after the US close in both winter (17:30 ET) and summer (18:30 ET).
     - cron: '30 22 * * 1-5'
   workflow_dispatch:
+    inputs:
+      force_deploy:
+        description: 'Publish to Netlify now even if no new week or month has completed (costs 15 Netlify credits)'
+        type: boolean
+        default: false
 
 concurrency:
   group: deploy
   cancel-in-progress: false
 
-# The job commits the weekly forward-test snapshot (track/<ISO week>.json) and the
-# last good constituent list (data/universe-fallback.json) back to the repository.
+# The job commits the weekly forward-test snapshot (track/<ISO week>.json), the last good
+# constituent list and the last-published marker back to the repository.
 permissions:
   contents: write
 
@@ -27,7 +32,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: main # always the newest main, so snapshots committed by the previous run are present
+          ref: main # always the newest main, so files committed by the previous run are present
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -37,16 +42,32 @@ jobs:
       - name: Build daily data (prices, signals, backtest, forward test)
         run: npm run data:build
       - name: Record the forward-test snapshot and constituent list
-        # Committed before the deploy so a failed deploy never loses a week of the record.
+        # Runs every day and is committed before any deploy, so the weekly record never depends on publishing.
         # Pushes made with GITHUB_TOKEN do not start another workflow run.
         run: |
           git add track data/universe-fallback.json
           if git diff --cached --quiet; then echo "Nothing new to record."; exit 0; fi
           git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" commit -m "data: record $(date -u +%F)"
           git push origin HEAD:main || (git pull --rebase origin main && git push origin HEAD:main)
+      - name: Decide whether to publish
+        # A Netlify production deploy costs credits. Signals only change when a week or month
+        # completes, so publish only then; every other run stops here.
+        id: gate
+        env:
+          FORCE_DEPLOY: ${{ inputs.force_deploy }}
+        run: node scripts/should-deploy.mjs
       - name: Build site
+        if: steps.gate.outputs.deploy == 'true'
         run: npm run build
       - name: Deploy to Netlify (prebuilt, no Netlify build minutes)
+        if: steps.gate.outputs.deploy == 'true'
         env:
           NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
         run: npx --yes netlify-cli@latest deploy --prod --no-build --dir=dist --message "data ${{ github.event_name }} $(date -u +'%Y-%m-%dT%H:%MZ')"
+      - name: Remember what was published
+        if: steps.gate.outputs.deploy == 'true'
+        run: |
+          node scripts/should-deploy.mjs --mark
+          git add data/last-deploy.json
+          git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" commit -m "deploy: published $(date -u +%F)"
+          git push origin HEAD:main || (git pull --rebase origin main && git push origin HEAD:main)
